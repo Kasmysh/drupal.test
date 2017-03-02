@@ -1,0 +1,371 @@
+<?php
+
+    variable_set('goods_categories', array(1=>'first', 'second', 'third', 'fourth', 'fith'));
+
+    function shop_goods_block_info()
+    {
+        $blocks['shop_goods'] = array(
+            'info'  => t('Shop Goods'),
+            'cache' => DRUPAL_CACHE_PER_ROLE
+        );
+
+        return $blocks;
+    }
+
+    function shop_goods_menu()
+    {
+
+
+        $items = array();
+
+        // $items['admin/config/content/shop_goods'] = array(
+        //     'title'            => 'Shop Goods',
+        //     'description'      => 'Configure the shop items.',
+        //     'page callback'    => 'shop_goods_mstart',
+        //     'access arguments' => array('administer site configuration'),
+        // );
+        $items['shop_goods'] = array(
+            'title'            => 'Shop Goods',
+            'description'      => 'Configure the shop items.',
+            'page callback'    => 'shop_goods_mstart',
+            'access arguments' => array('access content'),
+        );
+        $items['ajax/shop_goods/goods_change_view'] = array(
+            'type' => MENU_CALLBACK,
+            'page callback' => 'shop_goods_setFiltersAndGetGoodsRows',
+            'access arguments' => array('access content'),
+        );
+        $items['ajax/shop_goods/goods_del'] = array(
+            'type' => MENU_CALLBACK,
+            'page callback' => 'shop_goods_delGood',
+            'access arguments' => array('access content'),
+        );
+        $items['ajax/shop_goods/goods_get_edit_form'] = array(
+            'type' => MENU_CALLBACK,
+            'page callback' => 'shop_goods_renderEditGood',
+            'access arguments' => array('access content'),
+        );
+
+        return $items;
+    }
+
+    function shop_goods_block_view($delta = '')
+    {
+        $blocks = array();
+        switch ($delta) {
+            case 'shop_goods':
+                $blocks['subject'] = 'Configure the shop items.';
+                $blocks['content'] = shop_goods_mstart();
+        }
+
+        return $blocks;
+    }
+
+    function shop_goods_getGoodsDbSelectDescriptor($fields)
+    {
+        $goodsTableDescr = 
+            db_select('shopgoods', 'g')
+                ->fields('g', $fields);
+
+        return $goodsTableDescr;
+    }
+
+    function shop_goods_filterGoods($goodsDbDecrp, $filtersMap=array())
+    {
+        foreach ($filtersMap as $filter) {
+            $goodsDbDecrp = $goodsDbDecrp->condition($filter['name'], $filter['value'], isset($filter['condition']) ? $filter['condition'] : '=');
+        }
+        return $goodsDbDecrp;
+    }
+
+    function shop_goods_sortGoods($goodsDbDecrp, $orderByMap=array())
+    {
+        foreach ($orderByMap as $orderSettings) {
+            $goodsDbDecrp = $goodsDbDecrp->orderBy($orderSettings['name'], $orderSettings['value']);
+        }
+        return $goodsDbDecrp;
+    }
+
+    function shop_goods_getGoodsTableData()
+    {
+        if(isset($_SESSION['shop_goods_settings']['view'])){
+            $viewSettings = $_SESSION['shop_goods_settings']['view'];
+        }else{
+            $viewSettings = array();
+        }
+
+        $categories = variable_get('goods_categories');
+        $fields = array('id', 'name', 'category', 'price');
+        $goodsDbDecrp = shop_goods_getGoodsDbSelectDescriptor($fields);
+        $fields = array_map(function ($fieldValue)
+        {
+            return array(
+                'name' => $fieldValue,
+                'isSortable' =>  in_array($fieldValue, array('id', 'price'))
+                );
+        }, array_merge( $fields, array('edit') ) );
+
+        $prefix = 'shop_goods_';
+        $filterHandlerName = '';
+        foreach ($viewSettings as $handlerName => $value) {
+            $filterHandlerName = $prefix.$handlerName;
+            $filterHandlerName($goodsDbDecrp, $value);
+        }
+
+        $rows = $goodsDbDecrp->execute()->fetchAll(PDO::FETCH_ASSOC);
+        $rows = array_map(function ($row) use($categories){
+            $row['category'] = $categories[$row['category']];
+            return $row;
+        }, $rows);
+
+        $goodsTableBody = theme('shop_goodsTableBody', array(
+            'goodsTableData' => array('headers'=> $fields, 'body' => $rows)
+        ));
+
+        return array('headers'=> $fields, 'body' => $goodsTableBody);
+    }
+
+    function shop_goods_mstart()
+    {
+        drupal_add_library('system', 'drupal.ajax');
+
+        $selfPath = drupal_get_path('module', 'shop_goods');
+
+        drupal_add_css( $selfPath . '/static/css/main.css' );
+        drupal_add_js( $selfPath . '/static/js/main.js' );
+        drupal_add_js('misc/jquery.form.js');
+
+        $filters = array();
+        $sOrders = array();
+
+        $categories = variable_get('goods_categories');
+
+        if( !isset($_SESSION['shop_goods_settings']) ){
+            $_SESSION['shop_goods_settings'] = array();
+        }else{
+            $sessTmp = $_SESSION['shop_goods_settings'];
+            if(isset($sessTmp['view'])){
+                $sessTmp = $sessTmp['view'];
+                if( isset($sessTmp['filterGoods']) ){
+                    foreach ($sessTmp['filterGoods'] as $filter) {
+                        switch ($filter['name']) {
+                            case 'category':
+                                $filters['currCategory'] = array(
+                                        'name' => $categories[$filter['value']],
+                                        'value' => $filter['value']
+                                    );
+                                break;
+                            case 'name':
+                                $filters['currGoodName'] = $filter['value'];
+                                break;
+                        }
+                    }
+                }
+                if( isset($sessTmp['sortGoods']) ){
+                    foreach ($sessTmp['sortGoods'] as $order) {
+                        switch ($order['name']) {
+                            case 'id':
+                            case 'price':
+                                $sOrders['currGoodOrder'] = $order;
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+
+        $goodsTableData = shop_goods_getGoodsTableData();
+
+        return theme('shop_mainPage', array(
+            'goodsFilters' => $filters,
+            'googsSortOrders' => $sOrders,
+            'goodsCategories' => $categories,
+            'goodsTableData' => $goodsTableData
+        ));
+    }
+
+    function shop_goods_setFiltersAndGetGoodsRows()
+    {
+        $filterConstraint = function ($constraints)
+        {
+            $filtered = 
+                array_filter($constraints, function ($constraint)
+                {
+                    return isset($constraint['value']) && !empty($constraint['value']);
+                });
+            return $filtered;
+        };
+        if(isset($_POST['filters'])){
+            $_SESSION['shop_goods_settings']['view']['filterGoods'] = $filterConstraint($_POST['filters']);
+        }
+        if(isset($_POST['sortOrders'])){
+            $_SESSION['shop_goods_settings']['view']['sortGoods'] = $filterConstraint($_POST['sortOrders']);
+        }
+
+        $goodsTableBody = shop_goods_getGoodsTableData();
+
+        echo $goodsTableBody['body'];
+        drupal_exit();
+    }
+
+    function shop_goods_delGood()
+    {
+        $id = $_POST['id'];
+        db_delete('shopgoods')
+          ->condition('id', $id)
+          ->execute();
+
+        echo shop_goods_getGoodsTableData()['body'];
+        drupal_exit();
+    }
+
+    function shop_goods_renderEditGood()
+    {
+        $form = drupal_render(drupal_get_form('shop_goods_edit_form'));
+        echo $form;
+        drupal_exit();
+    }
+
+    function shop_goods_edit_form($form, &$form_state)
+    {
+        $form = array();
+        $id = isset($_POST['id']) ? $_POST['id'] : '';
+        $gCategories = variable_get('goods_categories');
+
+        $form['mess'] = array(
+            '#type'          => 'container',
+            '#attributes' => array('id' => array('valid_message')),
+        );
+
+        $form['name'] = array(
+            '#title'         => 'Good name',
+            '#type'          => 'textfield',
+            '#value'         => isset($_POST['name']) ? $_POST['name'] : '',
+            '#required'      => true,
+        );
+
+        $form['category'] = array(
+            '#title'         => 'Good category',
+            '#type'          => 'select',
+            '#options'       => $gCategories,
+            '#value'         => isset($_POST['category']) ? array_search($_POST['category'], $gCategories) : 1,
+        );
+
+        $form['price'] = array(
+            '#title'         => 'Good price',
+            '#type'          => 'textfield',
+            '#value'         => isset($_POST['price']) ? $_POST['price'] : '',
+            '#required'      => true,
+        );
+
+        $form['submit'] = array(
+            '#type'  => 'submit',
+            '#value' => $id ? 'Edit' : 'Add',
+            '#attributes' => array('class' => array('use-ajax-submit')),
+        );
+
+        if($id) {
+            $form['id'] = array(
+                '#type'  => 'hidden',
+                '#value' => $id,
+            );
+        }
+
+        return $form;
+    }
+
+    function shop_goods_validateGoodsFields($godId, $name, $value)
+    {
+        $mess = '';
+        $res = array('isOk'=>true, 'message'=>&$mess);
+
+        switch ($name) {
+            case 'name':
+                $db = shop_goods_getGoodsDbSelectDescriptor(array('id'));
+                $db = shop_goods_filterGoods($db, array(
+                        array('name' => 'id', 'value' => $godId, 'condition' => '<>'),
+                        array('name' => 'name', 'value' => $value)
+                    ));
+                if(count($db->execute()->fetchAll())){
+                    $mess = 'Good with such name has exist already';
+                    $res['isOk'] = false;
+                }
+                break;
+            case 'price':
+                if( !preg_match('/^\d+\.?\d+$/', "$value") ){
+                    $mess = 'Price does not have valid format. Price must be a number';
+                    $res['isOk'] = false;
+                }
+                break;
+        }
+
+        return $res;
+    }
+
+    function shop_goods_edit_form_submit($form, &$form_state)
+    {
+        $values = $form_state['values'];
+        $form_state['rebuild'] = TRUE;
+        $commands = array();
+        $goodId = isset($values['id']) ? $values['id'] : '';
+
+        $resultIdContainer = '#shop-goods-edit-form';
+        $resultMessage = '<div class="messages success">Success!</div>';
+        $isSuccess = true;
+
+        $goodContant = array();
+
+        foreach (array_keys($values) as $name) {
+            $value = $_POST[$name];
+            $validationRes = shop_goods_validateGoodsFields($goodId, $name, $value);
+            if(!$validationRes['isOk']){
+                $resultIdContainer = '#valid_message';
+                $resultMessage = '<div id="valid_message">'.$validationRes['message'].'</div>';
+                $isSuccess = false;
+                break;
+            }
+            $goodContant[$name] = $value;
+        }
+
+        $commands[] = ajax_command_replace(
+          $resultIdContainer,
+          $resultMessage
+        );
+
+        if($isSuccess){
+
+            drupal_write_record('shopgoods', $goodContant, !empty($goodId) ? 'id' : array() );
+
+            $commands[] = ajax_command_replace(
+              '#s_goods',
+              '<tbody id="s_goods">'.
+              shop_goods_getGoodsTableData()['body']
+              .'</tbody>'
+            );
+        }
+
+        ajax_deliver(array('#type' => 'ajax', '#commands' => $commands));
+        drupal_exit();
+    }
+
+
+    function shop_goods_theme()
+    {
+        return array(
+            'shop_mainPage'   => array(
+                'variables' => array(
+                    'goodsFilters' => array(),
+                    'googsSortOrders' => array(),
+                    'goodsCategories' => NULL,
+                    'goodsTableData' => array()
+                ),
+                'template'  => 'shop_goods_spa'
+            ),
+            'shop_goodsTableBody' => array(
+                'variables' => array(
+                    'goodsTableData' => array()
+                ),
+                'template'  => 'shop_goods_goodsTableBody'
+            )
+        );
+    }

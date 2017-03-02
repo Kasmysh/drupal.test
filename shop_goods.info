@@ -1,0 +1,7 @@
+name = Shop Goods
+description = Makes a compact page to navigate on Shop goods.
+package = «Shop»
+core = 7.x
+version = «7.x-1.0»
+configure = admin/config/content/shop_goods
+files[]= shop_goods.module

@@ -1,0 +1,9 @@
+.sort-table th.sortable{
+    cursor: pointer;
+}
+#shop_goods_spa .btn-stack {
+    float: right;
+    border-radius: 4px 4px 0 0;
+    border-bottom: 0;
+    margin-right: 1px;
+}

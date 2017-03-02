@@ -1,0 +1,22 @@
+<?php
+    // function shop_goods_uninstall()
+    // {
+    //     cache_clear_all('shop_goods', 'cache', TRUE);
+    //     drupal_uninstall_schema('shopgoods');
+    //     menu_rebuild();
+    // }
+
+    function shop_goods_schema()
+    {
+        $schema['shopgoods'] = array(
+            'fields'      => array(
+                'id'         => array('type' => 'serial',  'size'=>'normal',  'not null' => TRUE),
+                'name'       => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
+                'category'   => array('type' => 'int', 'not null' => TRUE),
+                'price'      => array('type' => 'float', 'not null' => TRUE)
+            ),
+            'primary key' => array('name')
+        );
+
+        return $schema;
+    }
