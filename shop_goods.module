@@ -101,7 +101,7 @@
         {
             return array(
                 'name' => $fieldValue,
-                'isSortable' =>  in_array($fieldValue, array('id', 'price'))
+                'isSortable' =>  in_array($fieldValue, array('name', 'price'))
                 );
         }, array_merge( $fields, array('edit') ) );
 
@@ -164,7 +164,7 @@
                 if( isset($sessTmp['sortGoods']) ){
                     foreach ($sessTmp['sortGoods'] as $order) {
                         switch ($order['name']) {
-                            case 'id':
+                            case 'name':
                             case 'price':
                                 $sOrders['currGoodOrder'] = $order;
                                 break;
@@ -281,18 +281,23 @@
 
         switch ($name) {
             case 'name':
-                $db = shop_goods_getGoodsDbSelectDescriptor(array('id'));
-                $db = shop_goods_filterGoods($db, array(
-                        array('name' => 'id', 'value' => $godId, 'condition' => '<>'),
-                        array('name' => 'name', 'value' => $value)
-                    ));
-                if(count($db->execute()->fetchAll())){
-                    $mess = 'Good with such name has exist already';
+                if( !empty($value)){
+                    $db = shop_goods_getGoodsDbSelectDescriptor(array('id'));
+                    $db = shop_goods_filterGoods($db, array(
+                            array('name' => 'id', 'value' => $godId, 'condition' => '<>'),
+                            array('name' => 'name', 'value' => $value)
+                        ));
+                    if(count($db->execute()->fetchAll())){
+                        $mess = 'Good with such name has exist already';
+                        $res['isOk'] = false;
+                    }
+                }else{
+                    $mess = 'Good must have a name!';
                     $res['isOk'] = false;
                 }
                 break;
             case 'price':
-                if( !preg_match('/^\d+\.?\d+$/', "$value") ){
+                if( !preg_match('/^\d+\.?\d*$/', "$value") ){
                     $mess = 'Price does not have valid format. Price must be a number';
                     $res['isOk'] = false;
                 }
