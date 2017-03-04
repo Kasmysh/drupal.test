@@ -1,7 +1,15 @@
 (function ($) {
+  Drupal.behaviors.common = {
+    attach : function(context, settings) {
+        $('[data-submit]', context || '#shop_goods_spa').click(ajaxSubmit);
+    }
+  };
+
   Drupal.behaviors.goodsFilter = {
     attach : function(context, settings) {
-        $('.search-panel .dropdown-menu', context).find('a').click(function(e) {
+        actualizeSortableColumnsView($('th.sortable', context || '#shop_goods_spa'));
+        
+        $('.dropdown-menu', context || '.search-panel ').find('a').click(function(e) {
             e.preventDefault();
             var param = $(this).attr("href").replace("#","");
             var concept = $(this).text();
@@ -9,11 +17,8 @@
             $('.input-group #search_param').val(param);
         });
 
-        $('#goods_filters_block [data-submit]', context).click(ajaxSubmit);
 
-        actualizeSortableColumnsView($('#shop_goods_spa th.sortable', context));
-
-        $('#shop_goods_spa th.sortable', context).click(function (e) {
+        $('th.sortable', context || '#shop_goods_spa').click(function (e) {
             var $this = $(this),
                 $oDirection = $('#orderDirection'),
                 $oFName = $('#orderFildName'),
@@ -42,7 +47,9 @@
 
   Drupal.behaviors.goodsEditers = {
     attach: function (context, settings) {
-        $('#goodsContantContainer button[data-submit]').click(ajaxSubmit);
+        // var goodsContantContext = context || '#goodsContantContainer';
+
+        // $('button[data-submit]', goodsContantContext).click(ajaxSubmit);
 
         $('#shop_goods_edit_form', context).ajaxForm();
 
@@ -66,6 +73,7 @@
           data: data,
           success: function(data){
               $targetUpdate.html(data);
+              console.log(contantSelector);
               Drupal.attachBehaviors(contantSelector);
           },
           error: function (err) {
