@@ -39,16 +39,18 @@
         </div>
     </div>
     <div id="goodsContantContainer" style="margin-top: 25px;">
-        <input type="hidden" name="sortOrders[0][name]" id="orderFildName"
-                <?php if (isset($googsSortOrders['currGoodOrder'])) : ?>
-                    value="<?= $googsSortOrders['currGoodOrder']['name']?>"
-                <?php endif; ?>
-            >
-        <input type="hidden" name="sortOrders[0][value]" id="orderDirection"
-                <?php if (isset($googsSortOrders['currGoodOrder'])) : ?>
-                    value="<?= $googsSortOrders['currGoodOrder']['value']?>"
-                <?php endif; ?>
-            >
+        <div id="goodsSortedInputContainer">
+            <input type="hidden" name="sortOrders[0][name]" id="orderFildName"
+                    <?php if (isset($googsSortOrders['currGoodOrder'])) : ?>
+                        value="<?= $googsSortOrders['currGoodOrder']['name']?>"
+                    <?php endif; ?>
+                >
+            <input type="hidden" name="sortOrders[0][value]" id="orderDirection"
+                    <?php if (isset($googsSortOrders['currGoodOrder'])) : ?>
+                        value="<?= $googsSortOrders['currGoodOrder']['value']?>"
+                    <?php endif; ?>
+                >
+        </div>
         <button class="btn btn-default btn-lg btn-stack" data-submit="/ajax/shop_goods/goods_get_edit_form" data-submit-update=".modal-body"  data-toggle="modal" data-target="#myModal" contenteditable="false">Add good</button>
         <table class="table table-bordered table-striped sort-table">
             <thead>
@@ -56,7 +58,7 @@
                     <?php foreach ($goodsTableData['headers'] as $headerSettings): ?>
 
                         <?php if($headerSettings['isSortable']): ?>
-                            <th class="sortable" data-value=<?= $headerSettings['name'] ?> data-submit="/ajax/shop_goods/goods_change_view" data-submit-container="#goodsContantContainer" data-submit-update="#s_goods">
+                            <th class="sortable" data-value=<?= $headerSettings['name'] ?> data-submit="/ajax/shop_goods/goods_change_view" data-submit-container="#goodsSortedInputContainer" data-submit-update="#s_goods">
                         <?php else: ?>
                             <th>
                         <?php endif; ?>
